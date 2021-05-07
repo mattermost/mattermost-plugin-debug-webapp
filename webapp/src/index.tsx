@@ -7,16 +7,34 @@ import manifest from './manifest';
 // eslint-disable-next-line import/no-unresolved
 import {PluginRegistry} from './types/mattermost-webapp';
 
+const globalStats = {
+    Start: Date.now(),
+    NumDispatches: 0,
+};
+
 export default class Plugin {
+    private unsubscribe?: () => void;
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
     public async initialize(registry: PluginRegistry, store: Store<GlobalState, Action<Record<string, unknown>>>) {
         window.webappDebugStore = store;
+        this.unsubscribe = store.subscribe(() => {
+            globalStats.NumDispatches++;
+        });
         window.logStoreStatistics = () => logStoreStatistics(store);
+    }
+
+    public deinitialize() {
+        if (this.unsubscribe) {
+            this.unsubscribe();
+            delete this.unsubscribe;
+        }
     }
 }
 
 function logStoreStatistics(store: any) {
     const state = store.getState();
+    const now = Date.now();
 
     const currentChannelId = state.entities.channels.currentChannelId;
     const currentTeamId = state.entities.teams.currentTeamId;
@@ -33,6 +51,10 @@ function logStoreStatistics(store: any) {
         'Posts (current channel)': Object.values(state.entities.posts.posts).filter((post: any) => post.channel_id === currentChannelId)?.length,
         'Visible DMs (from preferences)': Object.values(state.entities.preferences.myPreferences).filter((preference: any) => preference.category === 'direct_channel_show' && preference.value === 'true')?.length,
         'Visible GMs (from preferences)': Object.values(state.entities.preferences.myPreferences).filter((preference: any) => preference.category === 'group_channel_show' && preference.value === 'true')?.length,
+        Start: globalStats.Start,
+        NumDispatches: globalStats.NumDispatches,
+        Now: now,
+        DispatchesPerSecond: globalStats.NumDispatches / (Math.abs(now - globalStats.Start) / 1000),
     };
 
     // eslint-disable-next-line no-console
