@@ -13,13 +13,22 @@ const globalStats = {
 };
 
 export default class Plugin {
+    private unsubscribe?: () => void;
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
     public async initialize(registry: PluginRegistry, store: Store<GlobalState, Action<Record<string, unknown>>>) {
         window.webappDebugStore = store;
-        store.subscribe(() => {
+        this.unsubscribe = store.subscribe(() => {
             globalStats.NumDispatches++;
         });
         window.logStoreStatistics = () => logStoreStatistics(store);
+    }
+
+    public deinitialize() {
+        if (this.unsubscribe) {
+            this.unsubscribe();
+            delete this.unsubscribe;
+        }
     }
 }
 
